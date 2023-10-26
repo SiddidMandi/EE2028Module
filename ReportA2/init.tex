@@ -1,0 +1,84 @@
+\documentclass[a4 paper, 12pt]{article}
+\usepackage{array, enumitem}
+\usepackage{textcomp, gensymb}
+\usepackage{amsmath, amsfonts}
+\usepackage{tikz, pgfplots, geometry}
+\geometry{lmargin=1cm, rmargin=1cm, tmargin=1cm, bmargin=1cm}
+\usepackage[colorlinks=true,linkcolor=blue]{hyperref}
+\usetikzlibrary{shapes, arrows, positioning, plotmarks,shapes.geometric}
+%\usepackage[fontsize=13pt]{fontsize}
+
+%Flow chart shapes
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black]
+\tikzstyle{io} = [trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=3cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{dec} = [diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+\pgfplotsset{compat=1.18}
+\pagecolor[HTML]{dddddd}
+
+\begin{document}
+
+\begin{titlepage}
+\begin{center}
+    The Last of EE2028
+
+    \vspace{1.5cm}
+
+    Mandi Siddid Umesh  \\
+    Mohamed Abubaker Mustafa Abdelaal Elsayed
+
+    \vspace{1cm}
+    Compiled using \LaTeX 
+
+    \vspace{1cm}
+
+    \textbf{NO MOUSES WERE HARMED BY SWEATY PALMS FOR THE MAKING OF THIS
+    DOCUMENT}
+
+    \#mouselivesmatter
+\end{center}
+\end{titlepage}
+
+
+\begin{tikzpicture}[node distance=2cm]
+   \node (start) [startstop] {Main.c};
+   \node (in1) [io, below of=start] {Push Button};
+   \node (d_press) [dec, below of=in1, yshift=-1cm] {$T_2 - T_1 \ge 0.5$};
+   %only yshift ONCE
+   \node (standby) [dec, right of=d_press, xshift=7cm] {Standby Mode};
+   \node (o_operation) [process, right of=standby, xshift=2cm] {Surprise!};
+   
+   \node (last_f) [dec, below of=standby, yshift=-2cm] {Last Of EE};
+   \node (rescue_me) [process, right of=last_f, xshift=2cm] {Rescue me!!};
+   \node (l_charge) [process, below of=last_f, yshift=-2cm] {Charge Laser};
+
+   \node (standby2) [dec, below of=d_press, yshift=-2cm] {Standby Mode};
+   \node (e_battle) [process, right of=standby2, xshift=3cm] {Enter Battle Mode};
+   \node (last_f2) [dec, below of=standby2, yshift=-2cm] {Last Of EE};
+   \node (rescued) [process, right of=last_f2, xshift=3cm] {Rescued!};
+   \node (e_standby) [process, below of=last_f2, yshift=-1cm] {Enter
+       Standby Mode};
+
+   \draw [arrow] (start) -- (in1);
+   \draw [arrow] (in1) -- (d_press);
+   
+   \draw [arrow] (d_press) -- node[anchor=south] {yes} (standby);
+   \draw [arrow] (standby) -- node[anchor=east] {no} (last_f);
+   \draw [arrow] (last_f) -- node[anchor=east] {no} (l_charge);
+   \draw [arrow] (standby) -- node[anchor=south] {yes} (o_operation);
+   
+
+   \draw [arrow] (last_f) -- node[anchor=south] {yes} (rescue_me);
+
+   \draw [arrow] (d_press) -- node[anchor=east] {no} (standby2);
+   \draw [arrow] (standby2) -- node[anchor=east] {no} (last_f2);
+   \draw [arrow] (standby2) -- node[anchor=south] {yes} (e_battle);
+   \draw [arrow] (last_f2) -- node[anchor=east] {no} (e_standby);
+   \draw [arrow] (last_f2) -- node[anchor=south] {yes} (rescued);
+
+
+\end{tikzpicture}
+
+\end{document}
