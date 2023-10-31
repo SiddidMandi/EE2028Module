@@ -136,14 +136,14 @@ uint32_t lastTick2 = HAL_GetTick();
     int16_t gyro_raw_data[3] = {0};
     float gyro_data[3];
     BSP_GYRO_GetXYZ(gyro_raw_data);
-    gyro_data[0] = (float)gyro_raw_data[0] / (1000.0f);
-    gyro_data[1] = (float)gyro_raw_data[1] / (1000.0f);
-    gyro_data[2] = (float)gyro_raw_data[2] / (1000.0f);
+    gyro_data[0] = (float)gyro_raw_data[0] * (4.375 / 1000.0f);
+    gyro_data[1] = (float)gyro_raw_data[1] * (4.375 / 1000.0f);
+    gyro_data[2] = (float)gyro_raw_data[2] * (4.375 / 1000.0f);
 
     //printf("Accel X : %f; Accel Y : %f; Accel Z : %f; Temperature : %f\n", accel_data[0], accel_data[1], accel_data[2], temp_data);
     //fix this
     char sensorData[1000];
-    sprintf(sensorData, "MagnetX: %f, MagnetY: %f, MagnetZ: %f\r\n GyroX: %f, GyroY: %f, GyroZ: %f\r\n Humidity: %f%; Temperature: %f\r\n",
+    sprintf(sensorData, "	MagnetX: %f, MagnetY: %f, MagnetZ: %f\r\nGyroX: %f, GyroY: %f, GyroZ: %f\r\nHumidity: %f%; Temperature: %f\r\n",
     		magnet_data[0], magnet_data[1], magnet_data[2], gyro_data[0], gyro_data[1], gyro_data[2], humidity_data, temp_data);
     HAL_UART_Transmit(&huart1, (uint8_t*)sensorData, strlen(sensorData), 0xFFFF);
 
