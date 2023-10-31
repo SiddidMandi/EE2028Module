@@ -4,9 +4,10 @@
 
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_accelero.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_tsensor.h"
-#include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01.h"
+//#include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_hsensor.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_magneto.h"
+#include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_gyro.h"
 
 
 
@@ -103,13 +104,13 @@ uint32_t lastTick2 = HAL_GetTick();
  MX_GPIO_Init();
 
  //sensors and LED
- BSP_ACCELERO_Init();
- BSP_TSENSOR_Init();
  BSP_LED_Init(LED2);
- BSP_HSENSOR_Init();
- BSP_MAGNETO_Init();
+
+ BSP_TSENSOR_Init();
  BSP_HSENSOR_Init();
 
+ BSP_MAGNETO_Init();
+ BSP_GYRO_Init();
 
  while (1)
  {
@@ -125,13 +126,25 @@ uint32_t lastTick2 = HAL_GetTick();
     humidity_raw_data = BSP_HSENSOR_ReadHumidity();
     humidity_data = humidity_raw_data * 0.004;
 
-    int16_t magnet_data[3] = {0};
-    BSP_MAGNETO_GetXYZ(magnet_data);
+    int16_t magnet_raw_data[3] = {0};
+    float magnet_data[3];
+    BSP_MAGNETO_GetXYZ(magnet_raw_data);
+    magnet_data[0] = (float)magnet_raw_data[0] / (1000.0f);
+    magnet_data[1] = (float)magnet_raw_data[1] / (1000.0f);
+    magnet_data[2] = (float)magnet_raw_data[2] / (1000.0f);
+
+    int16_t gyro_raw_data[3] = {0};
+    float gyro_data[3];
+    BSP_GYRO_GetXYZ(gyro_raw_data);
+    gyro_data[0] = (float)gyro_raw_data[0] / (1000.0f);
+    gyro_data[1] = (float)gyro_raw_data[1] / (1000.0f);
+    gyro_data[2] = (float)gyro_raw_data[2] / (1000.0f);
 
     //printf("Accel X : %f; Accel Y : %f; Accel Z : %f; Temperature : %f\n", accel_data[0], accel_data[1], accel_data[2], temp_data);
     //fix this
-    char sensorData[100];
-    sprintf(sensorData, "MagnetX: %f, MagnetY: %f, MagnetZ: %f, Humidity: %f%; Temperature: %f\r\n", magnet_data[0], magnet_data[1], magnet_data[2], humidity_data, temp_data);
+    char sensorData[1000];
+    sprintf(sensorData, "MagnetX: %f, MagnetY: %f, MagnetZ: %f\r\n GyroX: %f, GyroY: %f, GyroZ: %f\r\n Humidity: %f%; Temperature: %f\r\n",
+    		magnet_data[0], magnet_data[1], magnet_data[2], gyro_data[0], gyro_data[1], gyro_data[2], humidity_data, temp_data);
     HAL_UART_Transmit(&huart1, (uint8_t*)sensorData, strlen(sensorData), 0xFFFF);
 
     //HAL_Delay(1000);// read once a ~second. make this systick
