@@ -6,6 +6,7 @@
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_tsensor.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_hsensor.h"
+#include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_magneto.h"
 
 
 
@@ -19,12 +20,12 @@ UART_HandleTypeDef huart1;
 
 
 volatile uint32_t currentTime = 0, lastButtonPressTime = 0;
-uint32_t lastTick = HAL_GetTick();
-uint32_t lastTick2 = HAL_GetTick();
+
 int buttonPressCount = 0, switcher = 0;
 int curr_mode = 0;
 int mode = 1;
 int last_stand = 0;
+const float humidity_sensitivity = 0.004;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -42,7 +43,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         //printf("\t Double press detected. \n");
           char dPress[] = "Double Press\r\n"; //It works!!
           HAL_UART_Transmit(&huart1, (uint8_t*)dPress, strlen(dPress), 0xFFFF);
-            
+
           if (mode ==2 && last_stand==0) {
                //standby mode =1
                mode = 1;
@@ -93,6 +94,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 int main(void)
 {
+uint32_t lastTick = HAL_GetTick();
+uint32_t lastTick2 = HAL_GetTick();
  initialise_monitor_handles();
  HAL_Init();
 
@@ -105,32 +108,30 @@ int main(void)
  BSP_LED_Init(LED2);
  BSP_HSENSOR_Init();
  BSP_MAGNETO_Init();
+ BSP_HSENSOR_Init();
 
 
  while (1)
  {
   currentTime = HAL_GetTick(); //it is in seconds!! wth!!
-  
+
 
 
     //mode 1, Standby, add if statement here
     if (mode ==1 && last_stand==0) {
-    float accel_data[3];
-    int16_t accel_data_i16[3] = { 0 };			// array to store the x, y and z readings.
-    BSP_ACCELERO_AccGetXYZ(accel_data_i16);		// read accelerometer
-    // the function above returns 16 bit integers which are acceleration in mg (9.8/1000 m/s^2).
-    // Converting to float to print the actual acceleration.
-    accel_data[0] = (float)accel_data_i16[0] * (9.8/1000.0f);
-    accel_data[1] = (float)accel_data_i16[1] * (9.8/1000.0f);
-    accel_data[2] = (float)accel_data_i16[2] * (9.8/1000.0f);
 
-    float temp_data;
+    float temp_data, humidity_data, humidity_raw_data;
     temp_data = BSP_TSENSOR_ReadTemp();			// read temperature sensor
+    humidity_raw_data = BSP_HSENSOR_ReadHumidity();
+    humidity_data = humidity_raw_data * 0.004;
+
+    int16_t magnet_data[3] = {0};
+    BSP_MAGNETO_GetXYZ(magnet_data);
 
     //printf("Accel X : %f; Accel Y : %f; Accel Z : %f; Temperature : %f\n", accel_data[0], accel_data[1], accel_data[2], temp_data);
-    //fix this shit too
+    //fix this
     char sensorData[100];
-    sprintf(sensorData, "Accel X: %f; Accel Y: %f; Accel Z: %f; Temperature: %f\r\n", accel_data[0], accel_data[1], accel_data[2], temp_data);
+    sprintf(sensorData, "MagnetX: %f, MagnetY: %f, MagnetZ: %f, Humidity: %f%; Temperature: %f\r\n", magnet_data[0], magnet_data[1], magnet_data[2], humidity_data, temp_data);
     HAL_UART_Transmit(&huart1, (uint8_t*)sensorData, strlen(sensorData), 0xFFFF);
 
     //HAL_Delay(1000);// read once a ~second. make this systick
@@ -143,12 +144,12 @@ int main(void)
       char prompt[] = "Testing Terminal\r\n"; //It works!!
       HAL_UART_Transmit(&huart1, (uint8_t*)prompt, strlen(prompt), 0xFFFF);
 
-        char theMode[50]; // Define a character array to store the formatted string
+        char the_mode_message[50]; // Define a character array to store the formatted string
 
         // Use sprintf to format the string with the mode value
         //HAL_Delay(1000);
-        sprintf(theMode, "the mode number is: %d\r\n", mode); //format it
-        HAL_UART_Transmit(&huart1, (uint8_t*)theMode, strlen(theMode), 0xFFFF);
+        sprintf(the_mode_message, "the mode number is: %d\r\n", mode); //format it
+        HAL_UART_Transmit(&huart1, (uint8_t*)the_mode_message, strlen(the_mode_message), 0xFFFF);
         lastTick2=HAL_GetTick();
         while ((HAL_GetTick() - lastTick2) < 1000) { } lastTick2 = HAL_GetTick();
         }
@@ -202,4 +203,3 @@ static void UART1_Init(void)
       while(1);
     }
 }
-
