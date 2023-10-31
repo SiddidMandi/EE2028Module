@@ -48,7 +48,8 @@
    \node (d_press) [dec, below of=in1, yshift=-1cm] {$T_2 - T_1 \ge 0.5$};
    %only yshift ONCE
    \node (standby) [dec, right of=d_press, xshift=7cm] {Standby Mode};
-   \node (o_operation) [process, right of=standby, xshift=2cm] {Surprise!};
+   \node (o_operation) [process, right of=standby, xshift=2cm]
+       {SpecialFeature};
    
    \node (last_f) [dec, below of=standby, yshift=-2cm] {Last Of EE};
    \node (rescue_me) [process, right of=last_f, xshift=2cm] {Rescue me!!};
@@ -77,8 +78,18 @@
    \draw [arrow] (standby2) -- node[anchor=south] {yes} (e_battle);
    \draw [arrow] (last_f2) -- node[anchor=east] {no} (e_standby);
    \draw [arrow] (last_f2) -- node[anchor=south] {yes} (rescued);
-
-
 \end{tikzpicture}
+\\
+'Last of EE' is an additional condition that gets triggered if the drone is
+upside down - if the accelerometer/magnetometer gives a certain value. When
+this mode is triggered, a 10 second timer will begin. If this timer hits 0,
+the drone will send a final message to UART and all services will be
+terminated. The 'Rescued!' option which is caused by a double press will
+clear this condition. \\
+
+In the 'SpecialFeature' we aim to immplement the additional feature of
+having the UART echo back a message the user types in. A buffer will be
+created to store the characters and it will be printed back then the user
+presses carriage-return.
 
 \end{document}

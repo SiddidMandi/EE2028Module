@@ -67,8 +67,8 @@ all: main-build
 main-build: Assignment2.elf secondary-outputs
 
 # Tool invocations
-Assignment2.elf Assignment2.map: $(OBJS) $(USER_OBJS) /home/siddid/Desktop/UniNotes/AASem3Mods/EE2028/Assignment2/STM32L475VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Assignment2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/siddid/Desktop/UniNotes/AASem3Mods/EE2028/Assignment2/STM32L475VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Assignment2.map" -Wl,--gc-sections -static -specs=rdimon.specs --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+Assignment2.elf Assignment2.map: $(OBJS) $(USER_OBJS) /home/siddid/Desktop/UniNotes/AASem3Mods/EE2028-stm32/Double_Single_Press_UART/STM32L475VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Assignment2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/siddid/Desktop/UniNotes/AASem3Mods/EE2028-stm32/Double_Single_Press_UART/STM32L475VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Assignment2.map" -Wl,--gc-sections -static -specs=rdimon.specs --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

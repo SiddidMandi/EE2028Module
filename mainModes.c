@@ -19,12 +19,11 @@ UART_HandleTypeDef huart1;
 
 
 volatile uint32_t currentTime = 0, lastButtonPressTime = 0;
-uint32_t lastTick = HAL_GetTick();
-uint32_t lastTick2 = HAL_GetTick();
 int buttonPressCount = 0, switcher = 0;
 int curr_mode = 0;
 int mode = 1;
 int last_stand = 0;
+int last_ee = 0;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -51,7 +50,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
             } else if (mode == 1 && last_stand==0) {
                mode=2;
               char battleChar[] = "battleMode Engaged!! Pew pew\r\n"; //It works!!
-              HAL_UART_Transmit(&huart1, (uint8_t*)battleChar, strlen(dPress), 0xFFFF);
+              HAL_UART_Transmit(&huart1, (uint8_t*)battleChar, strlen(battleChar), 0xFFFF);
             }
 
         // Execute your action for the double press here
@@ -107,14 +106,23 @@ int main(void)
  BSP_MAGNETO_Init();
 
 
- while (1)
+ while (1)//main running loop
  {
   currentTime = HAL_GetTick(); //it is in seconds!! wth!!
   
+  char prompt[] = "Testing Terminal\r\n"; //It works!!
+  HAL_UART_Transmit(&huart1, (uint8_t*)prompt, strlen(prompt), 0xFFFF);
+
+    char theMode[50]; // Define a character array to store the formatted string
+
+    // Use sprintf to format the string with the mode value
+    sprintf(theMode, "the mode number is: %d\r\n", mode); //format it
+    HAL_UART_Transmit(&huart1, (uint8_t*)theMode, strlen(theMode), 0xFFFF);
 
 
     //mode 1, Standby, add if statement here
-    if (mode ==1 && last_stand==0) {
+    //mode 2, BattleMode, add if statement here
+   
     float accel_data[3];
     int16_t accel_data_i16[3] = { 0 };			// array to store the x, y and z readings.
     BSP_ACCELERO_AccGetXYZ(accel_data_i16);		// read accelerometer
@@ -128,31 +136,18 @@ int main(void)
     temp_data = BSP_TSENSOR_ReadTemp();			// read temperature sensor
 
     //printf("Accel X : %f; Accel Y : %f; Accel Z : %f; Temperature : %f\n", accel_data[0], accel_data[1], accel_data[2], temp_data);
-    //fix this shit too
+    //make this sprintf and then HAL_UART_Transmit
+    // Transmit the formatted data using HAL_UART_Transmit
     char sensorData[100];
     sprintf(sensorData, "Accel X: %f; Accel Y: %f; Accel Z: %f; Temperature: %f\r\n", accel_data[0], accel_data[1], accel_data[2], temp_data);
     HAL_UART_Transmit(&huart1, (uint8_t*)sensorData, strlen(sensorData), 0xFFFF);
 
+
     //HAL_Delay(1000);// read once a ~second. make this systick
-      while ((HAL_GetTick() - lastTick) < 1000) { } lastTick = HAL_GetTick();
-    //HAL_Delay(1000);// read once a ~second, fix this shit
+      while ((HAL_GetTick() - lastTick) < 1000) {
+        // Waiting for 1000 ms (1 second) to elapse
     }
-    //standby
-
-    if (mode ==2 && last_stand==0){
-      char prompt[] = "Testing Terminal\r\n"; //It works!!
-      HAL_UART_Transmit(&huart1, (uint8_t*)prompt, strlen(prompt), 0xFFFF);
-
-        char theMode[50]; // Define a character array to store the formatted string
-
-        // Use sprintf to format the string with the mode value
-        //HAL_Delay(1000);
-        sprintf(theMode, "the mode number is: %d\r\n", mode); //format it
-        HAL_UART_Transmit(&huart1, (uint8_t*)theMode, strlen(theMode), 0xFFFF);
-        lastTick2=HAL_GetTick();
-        while ((HAL_GetTick() - lastTick2) < 1000) { } lastTick2 = HAL_GetTick();
-        }
-        //battle mode
+    lastTick = HAL_GetTick();
 
  }//while (1)
 

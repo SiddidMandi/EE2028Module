@@ -58,8 +58,9 @@ int main(void) {
 
         // Reprint "Waiting for message:" for the next message
         HAL_UART_Transmit(&huart1, (uint8_t*)prompt, strlen(prompt), 0xFFFF);
-    }
-}
+
+    }//while 1
+}//main
 
 
 
