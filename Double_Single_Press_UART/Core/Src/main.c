@@ -26,7 +26,17 @@ int buttonPressCount = 0, switcher = 0;
 int curr_mode = 0;
 int mode = 1;
 int last_stand = 0;
-const float humidity_sensitivity = 0.004;
+const float humidity_sensitivity = 0.004, pressure_sensitivity = 526.3;
+
+void ee2028_delay(int duration)
+{
+	int currentTick	= HAL_GetTick();
+	int lastTick = currentTick;
+	while ((currentTick - lastTick) < duration)
+	{
+		currentTick = HAL_GetTick();
+	}
+}
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -40,20 +50,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
       if ((currentTime - lastButtonPressTime) < 1000)
       {
-     //printf("%d, %d, %d", currentTime, lastButtonPressTime, buttonPressCount);//seems to be in seconds
-        //printf("\t Double press detected. \n");
-          char dPress[] = "Double Press\r\n"; //It works!!
-          HAL_UART_Transmit(&huart1, (uint8_t*)dPress, strlen(dPress), 0xFFFF);
+          //char dPress[] = "Double Press\r\n"; //It works!!
+          //HAL_UART_Transmit(&huart1, (uint8_t*)dPress, strlen(dPress), 0xFFFF);
 
           if (mode ==2 && last_stand==0) {
                //standby mode =1
                mode = 1;
               char standbyChar[] = "StandbyMode Triggered\r\n"; //It works!!
-              HAL_UART_Transmit(&huart1, (uint8_t*)standbyChar, strlen(dPress), 0xFFFF);
+              HAL_UART_Transmit(&huart1, (uint8_t*)standbyChar, strlen(standbyChar), 0xFFFF);
             } else if (mode == 1 && last_stand==0) {
                mode=2;
               char battleChar[] = "battleMode Engaged!! Pew pew\r\n"; //It works!!
-              HAL_UART_Transmit(&huart1, (uint8_t*)battleChar, strlen(dPress), 0xFFFF);
+              HAL_UART_Transmit(&huart1, (uint8_t*)battleChar, strlen(battleChar), 0xFFFF);
             }
 
         // Execute your action for the double press here
@@ -95,124 +103,169 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 int main(void)
 {
-uint32_t lastTick = HAL_GetTick();
-uint32_t lastTick2 = HAL_GetTick();
- initialise_monitor_handles();
- HAL_Init();
+	initialise_monitor_handles();
+	HAL_Init();
 
- UART1_Init();
- MX_GPIO_Init();
+	UART1_Init();
+	MX_GPIO_Init();
 
- //sensors and LED
- BSP_LED_Init(LED2);
+	 //sensors and LED
+	BSP_LED_Init(LED2);
 
- BSP_TSENSOR_Init();
- BSP_HSENSOR_Init();
+	BSP_GYRO_Init();
+	BSP_MAGNETO_Init();
 
- BSP_MAGNETO_Init();
- BSP_GYRO_Init();
+	BSP_PSENSOR_Init();
 
- while (1)
- {
-  currentTime = HAL_GetTick(); //it is in seconds!! wth!!
+	BSP_TSENSOR_Init();
+	BSP_HSENSOR_Init();
+
+	BSP_ACCELERO_Init();
+
+	while (1)
+	{
+		BSP_LED_On(LED2);
+		currentTime = HAL_GetTick(); //it is in seconds!! wth!!
 
 
 
-    //mode 1, Standby, add if statement here
-    if (mode ==1 && last_stand==0) {
+		//mode 1, Standby, add if statement here
+		if (mode == 1 && last_stand == 0)
+		{
+			char newline[50];
+			sprintf(newline, "---------------------------------------\r\n");
+			HAL_UART_Transmit(&huart1, (uint8_t*)newline, strlen(newline), 0xFFFF);
 
-    float temp_data, humidity_data, humidity_raw_data;
-    temp_data = BSP_TSENSOR_ReadTemp();			// read temperature sensor
-    humidity_raw_data = BSP_HSENSOR_ReadHumidity();
-    humidity_data = humidity_raw_data * 0.004;
+			int16_t gyro_raw_data[3] = {0};
+			float gyro_data[3];
+			BSP_GYRO_GetXYZ(gyro_raw_data);
+			gyro_data[0] = (float)gyro_raw_data[0] * (4.375 / 1000.0f);
+			gyro_data[1] = (float)gyro_raw_data[1] * (4.375 / 1000.0f) - 76.2f;
+			gyro_data[2] = (float)gyro_raw_data[2] * (4.375 / 1000.0f);
 
-    int16_t magnet_raw_data[3] = {0};
-    float magnet_data[3];
-    BSP_MAGNETO_GetXYZ(magnet_raw_data);
-    magnet_data[0] = (float)magnet_raw_data[0] / (1000.0f);
-    magnet_data[1] = (float)magnet_raw_data[1] / (1000.0f);
-    magnet_data[2] = (float)magnet_raw_data[2] / (1000.0f);
+			char sensorData1[100];
+			sprintf(sensorData1, "Gyro X: %f, Y: %f, Z: %f (degrees per second)\r\n", gyro_data[0], gyro_data[1], gyro_data[2]);
+			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData1, strlen(sensorData1), 0xFFFF);
 
-    int16_t gyro_raw_data[3] = {0};
-    float gyro_data[3];
-    BSP_GYRO_GetXYZ(gyro_raw_data);
-    gyro_data[0] = (float)gyro_raw_data[0] * (4.375 / 1000.0f);
-    gyro_data[1] = (float)gyro_raw_data[1] * (4.375 / 1000.0f);
-    gyro_data[2] = (float)gyro_raw_data[2] * (4.375 / 1000.0f);
 
-    //printf("Accel X : %f; Accel Y : %f; Accel Z : %f; Temperature : %f\n", accel_data[0], accel_data[1], accel_data[2], temp_data);
-    //fix this
-    char sensorData[1000];
-    sprintf(sensorData, "	MagnetX: %f, MagnetY: %f, MagnetZ: %f\r\nGyroX: %f, GyroY: %f, GyroZ: %f\r\nHumidity: %f%; Temperature: %f\r\n",
-    		magnet_data[0], magnet_data[1], magnet_data[2], gyro_data[0], gyro_data[1], gyro_data[2], humidity_data, temp_data);
-    HAL_UART_Transmit(&huart1, (uint8_t*)sensorData, strlen(sensorData), 0xFFFF);
+			int16_t magnet_raw_data[3] = {0};
+			float magnet_data[3];
+			BSP_MAGNETO_GetXYZ(magnet_raw_data);
+			magnet_data[0] = (float)magnet_raw_data[0] / (1000.0f);
+			magnet_data[1] = (float)magnet_raw_data[1] / (1000.0f);
+			magnet_data[2] = (float)magnet_raw_data[2] / (1000.0f);
 
-    //HAL_Delay(1000);// read once a ~second. make this systick
-      while ((HAL_GetTick() - lastTick) < 1000) { } lastTick = HAL_GetTick();
-    //HAL_Delay(1000);// read once a ~second, fix this shit
-    }
-    //standby
+			char sensorData2[100];
+			sprintf(sensorData2, "Magnet X: %f, Y: %f, Z: %f (gauss)\r\n", magnet_data[0], magnet_data[1], magnet_data[2]);
+			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData2, strlen(sensorData2), 0xFFFF);
 
-    if (mode ==2 && last_stand==0){
-      char prompt[] = "Testing Terminal\r\n"; //It works!!
-      HAL_UART_Transmit(&huart1, (uint8_t*)prompt, strlen(prompt), 0xFFFF);
+			float humidity_data, humidity_raw_data, pressure_data, pressure_raw_data;
+			humidity_raw_data = BSP_HSENSOR_ReadHumidity();
+			humidity_data = humidity_raw_data * humidity_sensitivity;
+			pressure_raw_data = BSP_PSENSOR_ReadPressure();
+			pressure_data = pressure_raw_data * pressure_sensitivity;
 
-        char the_mode_message[50]; // Define a character array to store the formatted string
+			char sensorData3[50];
+			sprintf(sensorData3, "Pressure: %f (hPa)\r\nHumidity: %f (%%)\r\n", pressure_data, humidity_data);
+			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData3, strlen(sensorData3), 0xFFFF);
 
-        // Use sprintf to format the string with the mode value
-        //HAL_Delay(1000);
-        sprintf(the_mode_message, "the mode number is: %d\r\n", mode); //format it
-        HAL_UART_Transmit(&huart1, (uint8_t*)the_mode_message, strlen(the_mode_message), 0xFFFF);
-        lastTick2=HAL_GetTick();
-        while ((HAL_GetTick() - lastTick2) < 1000) { } lastTick2 = HAL_GetTick();
-        }
-        //battle mode
+			//HAL_Delay(1000);// read once a ~second. make this systick
+			ee2028_delay(1000);
+		}
+		//standby
 
- }//while (1)
+		if (mode == 2 && last_stand == 0)
+		{
+			//char prompt[] = "Testing Terminal\r\n"; //It works!!
+			//HAL_UART_Transmit(&huart1, (uint8_t*)prompt, strlen(prompt), 0xFFFF);
+
+			//char the_mode_message[50]; // Define a character array to store the formatted string
+
+			// Use sprintf to format the string with the mode value
+			//HAL_Delay(1000);
+
+			//sprintf(the_mode_message, "the mode number is: %d\r\n", mode); //format it
+			//HAL_UART_Transmit(&huart1, (uint8_t*)the_mode_message, strlen(the_mode_message), 0xFFFF);
+
+			BSP_LED_On(LED2);
+			ee2028_delay(500);
+
+			BSP_LED_Off(LED2);
+			ee2028_delay(500);
+
+			float temp_data, humidity_data, humidity_raw_data, pressure_data, pressure_raw_data;
+			temp_data = BSP_TSENSOR_ReadTemp();			// read temperature sensor
+			humidity_raw_data = BSP_HSENSOR_ReadHumidity();
+			humidity_data = humidity_raw_data * humidity_sensitivity;
+			pressure_raw_data = BSP_PSENSOR_ReadPressure();
+			pressure_data = pressure_raw_data * pressure_sensitivity;
+
+			char sensorData1[50];
+			sprintf(sensorData1, "Pressure: %f (hPa); Humidity: %f (%%); Temperature: %f (C)\r\n", pressure_data, humidity_data, temp_data);
+			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData1, strlen(sensorData1), 0xFFFF);
+
+			int16_t accel_raw_data[3] = { 0 };   // array to store the x, y and z readings.
+			float accel_data[3];
+			BSP_ACCELERO_AccGetXYZ(accel_raw_data);  // read accelerometer
+			accel_data[0] = (float)accel_raw_data[0] * (9.8/1000.0f);
+			accel_data[1] = (float)accel_raw_data[1] * (9.8/1000.0f);
+			accel_data[2] = (float)accel_raw_data[2] * (9.8/1000.0f);
+
+			if (accel_data[2] < -8.0)
+			{
+				last_stand = 1;
+			}
+
+			char sensorData2[100];
+			sprintf(sensorData2, "Acceleration X: %f, Y: %f, Z: %f (m/s^2)\r\n", accel_data[0], accel_data[1], accel_data[2]);
+			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData2, strlen(sensorData2), 0xFFFF);
+			//battle mode
+		}
+	}//while (1)
 
 }
 
 static void MX_GPIO_Init(void)
 {
- __HAL_RCC_GPIOC_CLK_ENABLE(); // Enable AHB2 Bus for GPIOC
+	__HAL_RCC_GPIOC_CLK_ENABLE(); // Enable AHB2 Bus for GPIOC
 
- GPIO_InitTypeDef GPIO_InitStruct = {0};
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
 
- // Configuration of BUTTON_EXTI13_Pin (GPIO-C Pin-13) as AF,
- GPIO_InitStruct.Pin = BUTTON_EXTI13_Pin;
- GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
- GPIO_InitStruct.Pull = GPIO_NOPULL;
- HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+	// Configuration of BUTTON_EXTI13_Pin (GPIO-C Pin-13) as AF,
+	GPIO_InitStruct.Pin = BUTTON_EXTI13_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
- // Enable NVIC EXTI line 13
- HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+	// Enable NVIC EXTI line 13
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 static void UART1_Init(void)
 {
-    /* Pin configuration for UART. BSP_COM_Init() can do this automatically */
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
-    GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_6;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+	/* Pin configuration for UART. BSP_COM_Init() can do this automatically */
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+	GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+	GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_6;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    /* Configuring UART1 */
-    huart1.Instance = USART1;
-    huart1.Init.BaudRate = 115200;
-    huart1.Init.WordLength = UART_WORDLENGTH_8B;
-    huart1.Init.StopBits = UART_STOPBITS_1;
-    huart1.Init.Parity = UART_PARITY_NONE;
-    huart1.Init.Mode = UART_MODE_TX_RX;
-    huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-    huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-    huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-    huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-    if (HAL_UART_Init(&huart1) != HAL_OK)
-    {
-      while(1);
-    }
+	/* Configuring UART1 */
+	huart1.Instance = USART1;
+	huart1.Init.BaudRate = 115200;
+	huart1.Init.WordLength = UART_WORDLENGTH_8B;
+	huart1.Init.StopBits = UART_STOPBITS_1;
+	huart1.Init.Parity = UART_PARITY_NONE;
+	huart1.Init.Mode = UART_MODE_TX_RX;
+	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+	huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+	if (HAL_UART_Init(&huart1) != HAL_OK)
+	{
+		while(1);
+	}
 }
