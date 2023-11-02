@@ -9,6 +9,7 @@
 		<item key="SmartImportRootWizardPage.STORE_NESTED_PROJECTS" value="true"/>
 		<item key="SmartImportRootWizardPage.STORE_CONFIGURE_NATURES" value="true"/>
 		<list key="org.eclipse.ui.internal.wizards.datatransfer.SmartImportRootWizardPage.knownSources">
+			<item value="/home/siddid/Desktop/UniNotes/AASem3Mods/EE2028Module"/>
 			<item value="/home/siddid/Desktop/UniNotes/AASem3Mods/EE2028Git/Assignment2_Return_Message"/>
 			<item value="/home/siddid/Desktop/UniNotes/AASem3Mods/EE2028Git"/>
 			<item value="/home/siddid/Desktop/UniNotes/AASem3Mods/EE2028Git/Assignment2"/>
