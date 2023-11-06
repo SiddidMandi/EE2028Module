@@ -4,14 +4,16 @@
 
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_accelero.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_tsensor.h"
-//#include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01.h"
+#include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_psensor.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_hsensor.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_magneto.h"
 #include "../../Drivers/BSP/B-L475E-IOT01/stm32l475e_iot01_gyro.h"
 
 
-
+//GPIO interrupts
 static void MX_GPIO_Init(void);
+
+
 extern void initialise_monitor_handles(void);
 void SystemClock_Config(void);
 
@@ -23,10 +25,10 @@ UART_HandleTypeDef huart1;
 volatile uint32_t currentTime = 0, lastButtonPressTime = 0;
 
 volatile int buttonPressCount = 0;
-int curr_mode = 0;
 volatile int mode = 1;
 volatile int last_stand = 0;
 volatile float accelZ = 0;
+
 const float humidity_sensitivity = 0.004, pressure_sensitivity = 526.3;
 
 void ee2028_delay(int duration)
@@ -41,80 +43,52 @@ void ee2028_delay(int duration)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if (GPIO_Pin == GPIO_PIN_11)
+	if (GPIO_Pin == GPIO_PIN_11) //If there is an accelerometer interrupt
 	{
-		//last_stand = 1;
-		if (accelZ < -8.0)
+		char msg_fall[] = "Free fall\r\n";
+		HAL_UART_Transmit(&huart1, (uint8_t*)msg_fall, strlen(msg_fall), 0xFFFF);
+	}
+
+	if (GPIO_Pin == BUTTON_EXTI13_Pin) //If there is a button interrupt
+	{
+		currentTime = HAL_GetTick(); //records time button was pressed
+		buttonPressCount++;
+		if (buttonPressCount == 2) //check if this was the second time button was pressed
 		{
-			char msg_accel1[] = "Flipped\r\n";
-			HAL_UART_Transmit(&huart1, (uint8_t*)msg_accel1, strlen(msg_accel1), 0xFFFF);
+			if ((currentTime - lastButtonPressTime) < 500) //if the time between the current button press and the one before was less the 500ms
+			{
+				if (mode == 2 && last_stand==0) //if mode = 2, (battle mode) and it is not in last of us mode
+				{
+					mode = 1; //change mode to 1, (standby mode)
+					char standbyChar[] = "Standby Mode Triggered\r\n";
+					HAL_UART_Transmit(&huart1, (uint8_t*)standbyChar, strlen(standbyChar), 0xFFFF);
+				}
+				else if (mode == 1 && last_stand==0) //if mode = 1, (standby mode) and it is not in last of us mode
+				{
+					mode = 2; //change mode to 2, (battle mode)
+					char battleChar[] = "Battle Mode Triggered\r\n";
+					HAL_UART_Transmit(&huart1, (uint8_t*)battleChar, strlen(battleChar), 0xFFFF);
+				}
+				else //If in last of us mode
+				{
+					last_stand = 0; //turn off last_stand mode
+				}
+
+				buttonPressCount = 0; //number of button presses reset to 0 as the double press was processed
+				lastButtonPressTime = 0; //Resets last time button was pressed
+			}
+			else //if the last button press was more than 500ms before the current button press
+			{
+				buttonPressCount = 1;
+				lastButtonPressTime = currentTime; //update the time of last button press
+			}
 		}
-		char msg_accel[] = "Moved\r\n";
-		HAL_UART_Transmit(&huart1, (uint8_t*)msg_accel, strlen(msg_accel), 0xFFFF);
+		else //if this is the first button press
+		{
+			buttonPressCount = 1;
+			lastButtonPressTime = currentTime; //update the time of last button press
+		}
 	}
-	if (GPIO_Pin == BUTTON_EXTI13_Pin)
-	{
-		//printf("hello");
-	currentTime = HAL_GetTick(); //sample current time for comparison, if button is pressed
-	buttonPressCount++;
-	// Check if the time elapsed since the last button press is less than your threshold (e.g., 500 ms)
-	if (buttonPressCount == 2)
-	{ //500ms threshold
-
-	  if ((currentTime - lastButtonPressTime) < 1000)
-	  {
-		  //char dPress[] = "Double Press\r\n"; //It works!!
-		  //HAL_UART_Transmit(&huart1, (uint8_t*)dPress, strlen(dPress), 0xFFFF);
-
-		  if (mode ==2 && last_stand==0) {
-			   //standby mode =1
-			   mode = 1;
-			  char standbyChar[] = "StandbyMode Triggered\r\n"; //It works!!
-			  HAL_UART_Transmit(&huart1, (uint8_t*)standbyChar, strlen(standbyChar), 0xFFFF);
-			} else if (mode == 1 && last_stand==0) {
-			   mode=2;
-			  char battleChar[] = "battleMode Engaged!! Pew pew\r\n"; //It works!!
-			  HAL_UART_Transmit(&huart1, (uint8_t*)battleChar, strlen(battleChar), 0xFFFF);
-			}
-			else{
-				last_stand = 0;
-			}
-
-		// Execute your action for the double press here
-		// Reset the count for the next detection
-		// set a variable called 'switcher' to TRUE
-		buttonPressCount = 0;
-		//lastButtonPressTime = 0;
-		lastButtonPressTime = HAL_GetTick();
-	  }
-	  else
-	  {
-	   buttonPressCount = 1;
-	   lastButtonPressTime = currentTime; //increment here
-	   //printf("Single press");
-
-	  char sPress[] = "Single Press\r\n"; //It works!!
-	  HAL_UART_Transmit(&huart1, (uint8_t*)sPress, strlen(sPress), 0xFFFF);
-	   //this is ignored for the first time AFTER a double press
-	   //first one after double press is single mingle
-	   //it will then be this code for repeated single presses
-	  }
-	}//if buttonPressCount==2
-	else
-	{
-	  // Reset the count if a long enough time has passed since the last button press
-	  buttonPressCount = 1;
-	  lastButtonPressTime = currentTime; //increment here
-	  //printf("Single and ready to mingle");
-
-	  char promptSingle[] = "Single Mingle\r\n"; //It works!!
-	  HAL_UART_Transmit(&huart1, (uint8_t*)promptSingle, strlen(promptSingle), 0xFFFF);
-	  //this won't happen if the previous was a single press
-	  //but will happen if the previous was a double press
-	}
-
-
-	}//GPIO_Pin == thing
 }
 
 int main(void)
@@ -130,42 +104,28 @@ int main(void)
 
 	BSP_GYRO_Init();
 	BSP_MAGNETO_Init();
-
 	BSP_PSENSOR_Init();
-
 	BSP_TSENSOR_Init();
 	BSP_HSENSOR_Init();
-
 	BSP_ACCELERO_Init();
-	SENSOR_IO_Init(); // initialize sensor read/write operations
 
-	/*
+	SENSOR_IO_Init(); // initialize sensor read/write operations
 	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_CTRL1_XL, 0x60); // turn on accelerometer
 	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_TAP_CFG1, 0x80); // enable basic interrupts
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_FREE_FALL, 0x00); // set free fall threshold and duration to be highest setting at 500mg
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_MD1_CFG, 0x10); // enable routing of free fall event detection
+	/*
+	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, 0x55, 0b11111100); // enables tilt
+	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_MD1_CFG, 0b00000110); // routing to tilt event
 	*/
 
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_CTRL1_XL, 0x60); // turn on accelerometer
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_TAP_CFG1, 0x80); // enable basic interrupts
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, 0x19, 0b10001000); // ctrl10_c
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, 0x0B, 0b00000001); // drdy_pulse_cfg_g
-	//SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_FREE_FALL, 0xFF); // set free fall threshold and duration to be highest setting at 500mg
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, 0x55, 0b11111100); // 0x02 corresponds to approximately 90 degrees
-	SENSOR_IO_Write(LSM6DSL_ACC_GYRO_I2C_ADDRESS_LOW, LSM6DSL_ACC_GYRO_MD1_CFG, 0b00000110); 	// enable routing of free fall event detection
-
 	int laser_charge_counter = 0;
-
 	while (1)
 	{
-		BSP_LED_On(LED2);
-		currentTime = HAL_GetTick(); //it is in seconds!! wth!!
-
-
+		currentTime = HAL_GetTick(); //updates current time
 
 		//mode 1, Standby, add if statement here
 		if (mode == 1 && last_stand == 0)
 		{
+			BSP_LED_On(LED2);
 			char newline[50];
 			sprintf(newline, "---------------------------------------\r\n");
 			HAL_UART_Transmit(&huart1, (uint8_t*)newline, strlen(newline), 0xFFFF);
@@ -180,7 +140,6 @@ int main(void)
 			char sensorData1[100];
 			sprintf(sensorData1, "Gyro X: %f, Y: %f, Z: %f (degrees per second)\r\n", gyro_data[0], gyro_data[1], gyro_data[2]);
 			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData1, strlen(sensorData1), 0xFFFF);
-
 
 			int16_t magnet_raw_data[3] = {0};
 			float magnet_data[3];
@@ -203,46 +162,86 @@ int main(void)
 			sprintf(sensorData3, "Pressure: %f (hPa)\r\nHumidity: %f (%%)\r\n", pressure_data, humidity_data);
 			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData3, strlen(sensorData3), 0xFFFF);
 
-			//HAL_Delay(1000);// read once a ~second. make this systick
-			ee2028_delay(1000);
+			ee2028_delay(1000); //delay function for 1000ms
+			int delay_duration = 1000;
+
+			int currentTick	= HAL_GetTick();
+			int firstTick = currentTick;
+			int light_change_counter = 0;
+			while ((currentTick - firstTick) < delay_duration)
+			{
+				currentTick = HAL_GetTick();
+				if(buttonPressCount == 1 && currentTick - lastButtonPressTime > 500) //If this is a single button press
+				{
+					buttonPressCount = 0; //resets buttonPressCount
+					char prompt[] = "Waiting for message:\r\n";
+					HAL_UART_Transmit(&huart1, (uint8_t*)prompt, strlen(prompt), 0xFFFF);
+					char received_message[100];
+					int message_length = 0;
+
+					while (1)
+					{
+						char received_char;
+						HAL_UART_Receive(&huart1, (uint8_t*)&received_char, 1, HAL_MAX_DELAY);
+
+						if (received_char == '\r' || message_length >= 99) // If Enter key is pressed or message length exceeds buffer size, break
+						{
+							break;
+						}
+						received_message[message_length++] = received_char;
+					}
+
+					received_message[message_length] = '\r';// Null-terminate the received message
+					received_message[message_length + 1] = '\n';// Null-terminate the received message
+					received_message[message_length + 2] = '\0';// Null-terminate the received message
+
+					HAL_UART_Transmit(&huart1, (uint8_t*)received_message, strlen(received_message), 0xFFFF);// Print the received message
+
+					memset(received_message, 0, sizeof(received_message));
+					message_length = 0;
+				}
+				if(mode == 2)
+				{
+					break;
+				}
+			}
+
 		}
 		//standby
 
 		if (mode == 2 && last_stand == 0)
 		{
-			// Use sprintf to format the string with the mode value
-
-			//sprintf(the_mode_message, "the mode number is: %d\r\n", mode); //format it
-			//HAL_UART_Transmit(&huart1, (uint8_t*)the_mode_message, strlen(the_mode_message), 0xFFFF);
-
-			int duration = 1000;
+			int led_duration = 1000;
 
 			int currentTick	= HAL_GetTick();
 			int firstTick = currentTick;
 			int light_change_counter = 0;
 			int needed_light_change_counter = 0;
-			while ((currentTick - firstTick) < duration)
+			while ((currentTick - firstTick) < led_duration)
 			{
 				currentTick = HAL_GetTick();
-				if(buttonPressCount == 1 && currentTick - lastButtonPressTime > 1000)
+				if(buttonPressCount == 1 && currentTick - lastButtonPressTime > 500) //If this is a single button press
 				{
-					char sPress[] = "Single Press\r\n"; //It works!!
-					HAL_UART_Transmit(&huart1, (uint8_t*)sPress, strlen(sPress), 0xFFFF);
-					laser_charge_counter += 3;
-					buttonPressCount = 0;
+					laser_charge_counter += 3; //increases  charge
+					char msgLaser[50];
+					sprintf(msgLaser, "Laser Charging, Charge Level: %d\r\n", laser_charge_counter);
+					HAL_UART_Transmit(&huart1, (uint8_t*)msgLaser, strlen(msgLaser), 0xFFFF);
+
+					buttonPressCount = 0; //resets buttonPressCount
 					if (laser_charge_counter >= 5)
 					{
-						laser_charge_counter -= 5;
-						char shot[] = "Shots Fired\r\n"; //It works!!
-						HAL_UART_Transmit(&huart1, (uint8_t*)shot, strlen(shot), 0xFFFF);
+						laser_charge_counter -= 5; //Discharges laser energy
+						char msgShot[] = "Shots Fired\r\n";
+						HAL_UART_Transmit(&huart1, (uint8_t*)msgShot, strlen(msgShot), 0xFFFF);
 					}
 				}
 				if(mode == 1)
 				{
 					break;
 				}
+
 				int needed_light_change_counter = (currentTick - firstTick) / 500;
-				while(needed_light_change_counter - light_change_counter)
+				while(needed_light_change_counter - light_change_counter) //checks if led needs to be switched on or off
 				{
 					if(light_change_counter % 2)
 					{
@@ -267,6 +266,10 @@ int main(void)
 				}
 			}
 
+			char newline[50];
+			sprintf(newline, "---------------------------------------\r\n");
+			HAL_UART_Transmit(&huart1, (uint8_t*)newline, strlen(newline), 0xFFFF);
+
 			float temp_data, humidity_data, humidity_raw_data, pressure_data, pressure_raw_data;
 			temp_data = BSP_TSENSOR_ReadTemp();			// read temperature sensor
 			humidity_raw_data = BSP_HSENSOR_ReadHumidity();
@@ -286,24 +289,19 @@ int main(void)
 			accel_data[2] = (float)accel_raw_data[2] * (9.8/1000.0f);
 			accelZ = accel_data[2];
 
-			//If statement without interrupt for accelerometer
-			if (accel_data[2] < -8.0)
-			{
-				last_stand = 1;
-			}
-
-
-
 			char sensorData2[100];
 			sprintf(sensorData2, "Acceleration X: %f, Y: %f, Z: %f (m/s^2)\r\n", accel_data[0], accel_data[1], accel_data[2]);
 			HAL_UART_Transmit(&huart1, (uint8_t*)sensorData2, strlen(sensorData2), 0xFFFF);
-			//battle mode
+
+			if (accel_data[2] < -8.0) //If the stm32 board is upside down
+			{
+				last_stand = 1;
+			}
 		}
 
 		if (last_stand == 1) //last stand mode is on
 		{
 			int last_stand_duration = 10000;
-
 			int currentTick	= HAL_GetTick();
 			int firstTick = currentTick;
 			int light_change_counter = 0;
@@ -328,15 +326,15 @@ int main(void)
 					light_change_counter++;
 				}
 			}
-			if (last_stand == 0 && (currentTick - firstTick) <= 10000)
+			if (last_stand == 0 && (currentTick - firstTick) <= 10000) //if it was rescued before the 10 seconds are up
 			{
-				char standbyChar[] = "Rescued\r\n"; //It works!!
-				HAL_UART_Transmit(&huart1, (uint8_t*)standbyChar, strlen(standbyChar), 0xFFFF);
+				char msgRescued[] = "Rescued\r\n";
+				HAL_UART_Transmit(&huart1, (uint8_t*)msgRescued, strlen(msgRescued), 0xFFFF);
 			}
 			else
 			{
-				char standbyChar[] = "I am become death destroyer of worlds\r\n"; //It works!!
-				HAL_UART_Transmit(&huart1, (uint8_t*)standbyChar, strlen(standbyChar), 0xFFFF);
+				char msgFinal[] = "I am become death destroyer of worlds\r\n";
+				HAL_UART_Transmit(&huart1, (uint8_t*)msgFinal, strlen(msgFinal), 0xFFFF);
 				HAL_UART_DeInit(&huart1);
 				break;
 			}
@@ -349,34 +347,31 @@ static void MX_GPIO_Init(void)
 {
 	__HAL_RCC_GPIOC_CLK_ENABLE(); // Enable AHB2 Bus for GPIOC
 
-	GPIO_InitTypeDef GPIO_InitStruct = {0};
+	GPIO_InitTypeDef GPIO_InitStruct1 = {0};
 
 	// Configuration of BUTTON_EXTI13_Pin (GPIO-C Pin-13) as AF,
-	GPIO_InitStruct.Pin = BUTTON_EXTI13_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+	GPIO_InitStruct1.Pin = BUTTON_EXTI13_Pin;
+	GPIO_InitStruct1.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct1.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct1);
 
 	// Enable NVIC EXTI line 13
 	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
-	GPIO_InitTypeDef gpio_init_structure;
+	__HAL_RCC_GPIOD_CLK_ENABLE(); // Enable AHB2 Bus for GPIOC
 
-	 /* Enable the GPIO D's clock */
-	__HAL_RCC_GPIOD_CLK_ENABLE();
+	GPIO_InitTypeDef GPIO_InitStruct2;
 
-	/* Configure LSM6DSL pin as input with External interrupt */
-	gpio_init_structure.Pin = LSM6DSL_INT1_EXTI11_Pin;
-	gpio_init_structure.Pull = GPIO_PULLUP;
-	gpio_init_structure.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+	//Configure LSM6DSL pin interrupt
+	GPIO_InitStruct2.Pin = LSM6DSL_INT1_EXTI11_Pin;
+	GPIO_InitStruct2.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStruct2.Pull = GPIO_PULLUP;
+	//HAL_GPIO_Init(LSM6DSL_INT1_EXTI11_GPIO_Port, &GPIO_InitStruct2);
+	HAL_GPIO_Init(GPIOD, &GPIO_InitStruct2);
 
-	//gpio_init_structure.Mode = GPIO_MODE_EVT_RISING;
-
-	HAL_GPIO_Init(LSM6DSL_INT1_EXTI11_GPIO_Port, &gpio_init_structure);
-
-	/* Enable and set LSM6DSL EXTI Interrupt to 0x01 sub priority */
+	//Sets LSM6DSL EXTI Interrupt sub priority to have 0x01
 	HAL_NVIC_SetPriority((IRQn_Type)(LSM6DSL_INT1_EXTI11_EXTI_IRQn), 0x0F, 0x01);
-	HAL_NVIC_EnableIRQ((IRQn_Type)(LSM6DSL_INT1_EXTI11_EXTI_IRQn));
+	HAL_NVIC_EnableIRQ((IRQn_Type)(LSM6DSL_INT1_EXTI11_EXTI_IRQn)); // Enable NVIC EXTI line 11
 }
 
 static void UART1_Init(void)
